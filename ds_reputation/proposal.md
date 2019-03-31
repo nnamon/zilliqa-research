@@ -162,6 +162,7 @@ void DirectoryService::UpdateDSCommiteeComposition() {
 
 ##### `DirectoryService::UpdateMyDSModeAndConsensusId`
 
+
 ##### `DirectoryService::StartFirstTxEpoch`
 
 ## Appendix
