@@ -1,0 +1,3 @@
+[submodule "ds_reputation/Zilliqa"]
+	path = ds_reputation/Zilliqa
+	url = git@github.com:nnamon/Zilliqa.git
