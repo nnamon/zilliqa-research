@@ -236,6 +236,69 @@ void DirectoryService::UpdateDSCommitteeComposition() {
 
 ##### `DirectoryService::StartFirstTxEpoch`
 
+#### libNode
+
+##### `Node::UpdateDSCommiteeComposition`
+
+The pertient message is `NodeInstructionType:DSBLOCK` which invokes
+[`Node::ProcessVCDSBlocksMessage`][9].
+
+```c++
+bool Node::ProcessVCDSBlocksMessage(const bytes& message,
+                                    unsigned int cur_offset,
+                                    [[gnu::unused]] const Peer& from) {
+  ...
+  m_mediator.UpdateDSBlockRand();  // Update the rand1 value for next PoW
+  UpdateDSCommiteeComposition(*m_mediator.m_DSCommittee,
+                              m_mediator.m_dsBlockChain.GetLastBlock());
+  ...
+  return true;
+}
+```
+
+Within the above function, the `Node::UpdateDSCommiteeComposition` is called to update the node's
+view of the DS Committee from the latest DS Block. This function is functionally similar to the
+`DirectoryService::UpdateDSCommitteeComposition` function.
+
+```c++
+void Node::UpdateDSCommiteeComposition(DequeOfNode& dsComm,
+                                       const DSBlock& dsblock) {
+  ...
+  // Get the map of all pow winners from the DS Block
+  const map<PubKey, Peer> NewDSMembers = dsblock.GetHeader().GetDSPoWWinners();
+  DequeOfNode::iterator it;
+
+  for (const auto& DSPowWinner : NewDSMembers) {
+    // If the current iterated winner is my node.
+    if (m_mediator.m_selfKey.second == DSPowWinner.first) {
+      if (!GUARD_MODE) {
+        // Place my node's information in front of the DS Committee
+        // Peer() is required because my own node's network information is zeroed out.
+        dsComm.emplace_front(m_mediator.m_selfKey.second, Peer());
+      } else {
+        // Calculate the position to insert the current winner.
+        it = dsComm.begin() + (Guard::GetInstance().GetNumOfDSGuard());
+        // Place my node's information in front of the DS Committee Community Nodes.
+        dsComm.emplace(it, m_mediator.m_selfKey.second, Peer());
+      }
+    } else {
+      if (!GUARD_MODE) {
+        // Place the current winner node's information in front of the DS Committee.
+        dsComm.emplace_front(DSPowWinner);
+      } else {
+        // Calculate the position to insert the current winner.
+        it = dsComm.begin() + (Guard::GetInstance().GetNumOfDSGuard());
+        // Place the winner's information in front of the DS Committee Community Nodes.
+        dsComm.emplace(it, DSPowWinner);
+      }
+    }
+    // Removes the last element, maintaining the size of the DS Committee.
+    dsComm.pop_back();
+  }
+}
+```
+
+
 ## Appendix
 
 ### Current DS Committee Composition Update Pseudocode
@@ -371,3 +434,4 @@ def DirectoryService_UpdateDSCommitteeComposition():
 [6]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L290
 [7]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L214
 [8]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L330
+[9]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libNode/DSBlockProcessing.cpp#L327
