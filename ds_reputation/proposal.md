@@ -347,6 +347,26 @@ void DirectoryService::UpdateMyDSModeAndConsensusId() {
 
 ##### `DirectoryService::StartFirstTxEpoch`
 
+Finally, the `DirectoryService::StartFirstTxEpoch` function is called to handle rejoining as a shard
+member. Currently, it seems that a node failing to find itself in the shard composition may end up
+in an indeterminate state.
+
+```c++
+void DirectoryService::StartFirstTxEpoch() {
+...
+    if (!found) {
+      LOG_EPOCH(WARNING, m_mediator.m_currentEpochNum,
+                "WARNING: Oldest DS node not in any of the new shards!");
+      return;
+    }
+...
+}
+```
+
+There might be a need to implement logic allowing the node to gracefully rejoin as a normal node
+since getting kicked out from the DS committee will be an expected behaviour for some nodes.
+
+
 #### libNode
 
 ##### `Node::UpdateDSCommiteeComposition`
