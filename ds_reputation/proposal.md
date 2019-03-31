@@ -57,7 +57,7 @@ listing](#proposed-ds-committee-composition-update-pseudocode) of this proposed 
 ## Caveats
 
 Since the solution places emphasis on performance, it might accentuate the geographical
-centralisation problem we see in the DS Committee. Since latency is a large factor in being the pBFT
+centralisation problem we see in the DS Committee. Due to latency being a large factor in the pBFT
 process, the proposal might provide extra disincentive for miners to setup nodes outside of the main
 cluster in North America. Hence, the minimum threshold must be selected with care to avoid excluding
 benign DS nodes that might act a little slower due to geographical latency in the interest of
