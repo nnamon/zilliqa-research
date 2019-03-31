@@ -160,6 +160,77 @@ void DirectoryService::UpdateDSCommiteeComposition() {
 }
 ```
 
+The proposed solution involves leveraging the `powWinners` field to contain the DS nodes prioritised
+for removal. Existing DS members contained ('losers') in the the map of the `powWinners` are moved
+to the end of the DS Committee deque while the winners are placed in the same manner as before.
+The number of actual winners is tracked as the map is iterated through. This number of nodes are
+removed from the back of the deque to maintain the size of the committee.
+
+```c++
+void DirectoryService::UpdateDSCommitteeComposition() {
+  ...
+  // Get the map of all pow winners from the DS Block.
+  const map<PubKey, Peer> NewDSMembers =
+      m_mediator.m_dsBlockChain.GetLastBlock().GetHeader().GetDSPoWWinners();
+  DequeOfNode::iterator it;
+  uint32_t NumWinners = 0;
+
+  for (const auto& DSPowWinner : NewDSMembers) {
+    // Check if the current pow candidate is an existing DS Committee member. ('loser')
+    it = std::find(m_mediator.m_DSCommittee.begin(), m_mediator.m_DSCommittee.end(), DSPowWinner);
+    if (it != m_mediator.m_DSCommittee.end()) {
+      // Move the candidate to the back of the committee and continue processing other candidates.
+      m_mediator.m_DSCommittee.erase(it)
+      // Only reorders the Committee. The size is not changed.
+      m_mediator.m_DSCommittee.emplace_back(DSPowWinner)
+      continue;
+    }
+
+    // Otherwise, the candidate is a winner.
+    // Remove the pow winner's information from the map of all PoW network information.
+    m_allPoWConns.erase(DSPowWinner.first);
+
+    // If the current iterated winner is my node.
+    if (m_mediator.m_selfKey.second == DSPowWinner.first) {
+      if (!GUARD_MODE) {
+        // Place my node's information in front of the DS Committee
+        // Peer() is required because my own node's network information is zeroed out.
+        m_mediator.m_DSCommittee->emplace_front(m_mediator.m_selfKey.second,
+                                                Peer());
+      } else {
+        // Calculate the position to insert the current winner.
+        it = m_mediator.m_DSCommittee->begin() +
+             (Guard::GetInstance().GetNumOfDSGuard());
+        // Place my node's information in front of the DS Committee Community Nodes.
+        m_mediator.m_DSCommittee->emplace(it, m_mediator.m_selfKey.second,
+                                          Peer());
+      }
+    } else {
+      if (!GUARD_MODE) {
+        // Place the current winner node's information in front of the DS Committee.
+        m_mediator.m_DSCommittee->emplace_front(DSPowWinner);
+      } else {
+        // Calculate the position to insert the current winner.
+        it = m_mediator.m_DSCommittee->begin() +
+             (Guard::GetInstance().GetNumOfDSGuard());
+        // Place the winner's information in front of the DS Committee Community Nodes.
+        m_mediator.m_DSCommittee->emplace(it, DSPowWinner);
+      }
+    }
+
+    // Keep a count of the number of winners.
+    ++NumWinners;
+  }
+
+  // Remove one node for every winner, maintaining the size of the DS Committee.
+  for (auto i = 0; i < NumWinners; i++) {
+    // One item is always removed every winner, with removal priority given to 'loser' candidates
+    // before expiring nodes.
+    m_mediator.m_DSCommittee->pop_back();
+  }
+}
+```
+
 ##### `DirectoryService::UpdateMyDSModeAndConsensusId`
 
 
@@ -250,7 +321,7 @@ def DirectoryService_UpdateDSCommitteeComposition():
             it = m_DSCommittee.begin() + m_DSCommitee.index(DSPowCandidate)
             m_DSCommittee.erase(it)
             # Only reorders the Committee. The size is not changed.
-            m_DSCommittee.push_back(DSPowCandidate)
+            m_DSCommittee.emplace_back(DSPowCandidate)
             continue
 
         # Otherwise, the candidate is a winner.
@@ -277,9 +348,7 @@ def DirectoryService_UpdateDSCommitteeComposition():
                 # Calculate the position to insert the current winner.
                 it = m_DSCommittee.begin() + NUMBER_OF_DS_GUARDS
 
-                # Place the winner's information in front of the DS Committee Community Nodes
-
-    // Removes the last element, maintaining the size of the DS Committee.
+                # Removes the last element, maintaining the size of the DS Committee.
                 m_DSCommittee.emplace(it, DSPowWinner)
 
             # Keep a count of the number of winners.
