@@ -28,8 +28,8 @@ requirement for stalling the network.
 
 The proposed solution is to require a minimum threshold percentage of co-signatures to be performed
 by every DS node. If a node does not meet this requirement, it is prioritised for replacement. Up to
-`numOfElectedDSMembers` non-performing nodes are selected this way (`n`), from the newest in the
-network to the oldest.  If less than `numOfElectedDSMembers` were selected, the oldest
+[`numOfElectedDSMembers`][3] non-performing nodes are selected this way (`n`), from the newest in
+the network to the oldest.  If less than `numOfElectedDSMembers` were selected, the oldest
 `numOfElectedDSMembers - n` nodes are added for replacement.
 
 This ensures that the non-responsive or non-performant nodes are immediately removed and creates
@@ -115,8 +115,8 @@ def DirectoryService_UpdateDSCommiteeComposition():
                 # Place the winner's information in front of the DS Committee Community Nodes
                 m_DSCommittee.emplace(it, DSPowWinner)
 
-        # Removes the last element, possibly a vestige from when only one DS node was replaced.
-        m_DSCommittee.pop_back()
+        # Removes the last element, maintaining the size of the DS Committee
+        m_DSCommittee.pop_back() # One item is always removed every winner.
 ```
 
 ### Proposed DS Committee Composition Update Pseudocode
@@ -136,13 +136,25 @@ m_allPoWConns: Map[PubKey, Peer]
 
 # Update DS Committee Composition
 def DirectoryService_UpdateDSCommiteeComposition():
-    # Get the map of all pow winners from the DS Block.
-    NewDSMembers: Map[PubKey, Peer] = GetDSPoWWinners()
+    # Get the map of all pow candidates from the DS Block.
+    NewDSMembers: Map[PubKey, Peer] = GetDSPoWCandidates()
     it: DequeOfNodeIterator
+    numWinners: int = 0
 
-    for DSPowWinner in NewDSMembers.items():
+    for DSPowCandidate in NewDSMembers.items():
+        # Check if the current pow candidate is an existing DS Committee member. ('loser')
+        if DSPowCandidate in m_DSCommittee:
+            # Move the candidate to the back of the committee and continue processing other
+            # candidates.
+            it = m_DSCommittee.begin() + m_DSCommitee.index(DSPowCandidate)
+            m_DSCommittee.erase(it)
+            # Only reorders the Committee. The size is not changed.
+            m_DSCommittee.push_back(DSPowCandidate)
+            continue
+
+        # Otherwise, the candidate is a winner.
         # Remove the pow winner's information from the map of all PoW network information.
-        m_allPoWConns.erase(DSPowWinner.first)
+        m_allPoWConns.erase(DSPowCandidate.first)
 
         # If the current iterated winner is my node.
         if m_self.pubkey == DSPowWinner.first:
@@ -167,7 +179,13 @@ def DirectoryService_UpdateDSCommiteeComposition():
                 # Place the winner's information in front of the DS Committee Community Nodes
                 m_DSCommittee.emplace(it, DSPowWinner)
 
-        # Removes the last element, possibly a vestige from when only one DS node was replaced.
+            # Keep a count of the number of winners.
+            numWinners += 1
+
+    # Remove one node for every winner, maintaining the size of the DS Committee.
+    for i in range(numWinners):
+        # One item is always removed every winner, with removal priority given to 'loser'
+        # candidates before expiring nodes.
         m_DSCommittee.pop_back()
 ```
 
@@ -175,3 +193,4 @@ def DirectoryService_UpdateDSCommiteeComposition():
 [//]: # (References)
 [1]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L290
 [2]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L238
+[3]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPreProcessing.cpp#L61
