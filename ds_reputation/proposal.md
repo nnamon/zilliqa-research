@@ -88,7 +88,7 @@ Both DS and non-DS nodes are affected for this part.
 #### libDirectoryService
 
 The pertient message is `DSInstructionType:DSBLOCKCONSENSUS` which invokes
-[`DirectoryService::ProcessDSBlockConsensus`][4]. The method calls
+[`DirectoryService::ProcessDSBlockConsensus`][4]. The function calls
 [`DirectoryService::ProcessDSBlockConsensusWhenDone`][5] when the DS Committee has completed
 consensus and is ready to process the DS Block.
 
@@ -110,6 +110,55 @@ These functions are affected by the proposed solution:
 3. [`DirectoryService::StartFirstTxEpoch`][8]
 
 ##### `DirectoryService::UpdateDSCommiteeComposition`
+
+This function updates a DS Node's view of the DS Committee composition from the `powWinners` entries
+in the finalised DS Block.
+
+```c++
+void DirectoryService::UpdateDSCommiteeComposition() {
+  ...
+  // Get the map of all pow winners from the DS Block.
+  const map<PubKey, Peer> NewDSMembers =
+      m_mediator.m_dsBlockChain.GetLastBlock().GetHeader().GetDSPoWWinners();
+  DequeOfNode::iterator it;
+
+  for (const auto& DSPowWinner : NewDSMembers) {
+    // # Remove the pow winner's information from the map of all PoW network information.
+    m_allPoWConns.erase(DSPowWinner.first);
+
+    // # If the current iterated winner is my node.
+    if (m_mediator.m_selfKey.second == DSPowWinner.first) {
+      if (!GUARD_MODE) {
+        // Place my node's information in front of the DS Committee
+        // Peer() is required because my own node's network information is zeroed out.
+        m_mediator.m_DSCommittee->emplace_front(m_mediator.m_selfKey.second,
+                                                Peer());
+      } else {
+        // Calculate the position to insert the current winner.
+        it = m_mediator.m_DSCommittee->begin() +
+             (Guard::GetInstance().GetNumOfDSGuard());
+        // Place my node's information in front of the DS Committee Community Nodes.
+        m_mediator.m_DSCommittee->emplace(it, m_mediator.m_selfKey.second,
+                                          Peer());
+      }
+    } else {
+      if (!GUARD_MODE) {
+        // Place the current winner node's information in front of the DS Committee.
+        m_mediator.m_DSCommittee->emplace_front(DSPowWinner);
+      } else {
+        // Calculate the position to insert the current winner.
+        it = m_mediator.m_DSCommittee->begin() +
+             (Guard::GetInstance().GetNumOfDSGuard());
+        // Place the winner's information in front of the DS Committee Community Nodes.
+        m_mediator.m_DSCommittee->emplace(it, DSPowWinner);
+      }
+    }
+
+    // Removes the last element, maintaining the size of the DS Committee.
+    m_mediator.m_DSCommittee->pop_back();
+  }
+}
+```
 
 ##### `DirectoryService::UpdateMyDSModeAndConsensusId`
 
@@ -133,6 +182,7 @@ m_selfKey: PairOfKey
 m_allPoWConns: Map[PubKey, Peer]
 
 # Update DS Committee Composition
+
 def DirectoryService_UpdateDSCommitteeComposition():
     # Get the map of all pow winners from the DS Block.
     NewDSMembers: Map[PubKey, Peer] = GetDSPoWWinners()
@@ -145,27 +195,27 @@ def DirectoryService_UpdateDSCommitteeComposition():
         # If the current iterated winner is my node.
         if m_self.pubkey == DSPowWinner.first:
             if not GUARD_MODE:
-                # Place my node's information in front of the DS Committee
+                # Place my node's information in front of the DS Committee.
                 # Peer() is required because my own node's network information is zeroed out.
                 m_DSCommittee.emplace_front(m_selfKey.pubkey, Peer())
             else:
                 # Calculate the position to insert the current winner.
                 it = m_DSCommittee.begin() + NUMBER_OF_DS_GUARDS
 
-                # Place my node's information in front of the DS Committee Community Nodes
+                # Place my node's information in front of the DS Committee Community Nodes.
                 m_DSCommittee.emplace(it, m_selfKey.pubkey, Peer())
         else:
             if not GUARD_MODE:
-                # Place the current winner node's information in front of the DS Committee
+                # Place the current winner node's information in front of the DS Committee.
                 m_DSCommittee.emplace_front(DSPowWinner)
             else:
                 # Calculate the position to insert the current winner.
                 it = m_DSCommittee.begin() + NUMBER_OF_DS_GUARDS
 
-                # Place the winner's information in front of the DS Committee Community Nodes
+                # Place the winner's information in front of the DS Committee Community Nodes.
                 m_DSCommittee.emplace(it, DSPowWinner)
 
-        # Removes the last element, maintaining the size of the DS Committee
+        # Removes the last element, maintaining the size of the DS Committee.
         m_DSCommittee.pop_back() # One item is always removed every winner.
 ```
 
@@ -209,24 +259,26 @@ def DirectoryService_UpdateDSCommitteeComposition():
         # If the current iterated winner is my node.
         if m_self.pubkey == DSPowWinner.first:
             if not GUARD_MODE:
-                # Place my node's information in front of the DS Committee
+                # Place my node's information in front of the DS Committee.
                 # Peer() is required because my own node's network information is zeroed out.
                 m_DSCommittee.emplace_front(m_selfKey.pubkey, Peer())
             else:
                 # Calculate the position to insert the current winner.
                 it = m_DSCommittee.begin() + NUMBER_OF_DS_GUARDS
 
-                # Place my node's information in front of the DS Committee Community Nodes
+                # Place my node's information in front of the DS Committee Community Nodes.
                 m_DSCommittee.emplace(it, m_selfKey.pubkey, Peer())
         else:
             if not GUARD_MODE:
-                # Place the current winner node's information in front of the DS Committee
+                # Place the current winner node's information in front of the DS Committee.
                 m_DSCommittee.emplace_front(DSPowWinner)
             else:
                 # Calculate the position to insert the current winner.
                 it = m_DSCommittee.begin() + NUMBER_OF_DS_GUARDS
 
                 # Place the winner's information in front of the DS Committee Community Nodes
+
+    // Removes the last element, maintaining the size of the DS Committee.
                 m_DSCommittee.emplace(it, DSPowWinner)
 
             # Keep a count of the number of winners.
