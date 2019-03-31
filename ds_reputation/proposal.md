@@ -1,6 +1,6 @@
-Zilliqa DS Committee Selection Algorithm
+# Zilliqa DS Committee Selection Algorithm
 
-# Problem Statement
+## Problem Statement
 
 Currently, the DS Committee is composed of nodes that are allowed to participate in the network as
 orchestrators and hence, are allowed to remain in the network for a long period of time. The period
@@ -12,7 +12,7 @@ when DS nodes get out of sync and have to wait until the next DS epoch to rejoin
 observations imply that at least 17% (v4.3.1 observation) of community nodes could be considered
 Byzantine at all times.
 
-# Impact
+## Impact
 
 The problem jeopardises the ability for the network to run resiliently without guard nodes.
 
@@ -24,7 +24,7 @@ malicious scenario, it also allows an attacker to not put forward any additional
 maintain their membership in the DS Committee. This eases the objective of accruing the 1/3
 requirement for stalling the network.
 
-# Proposed Solution
+## Proposed Solution
 
 The proposed solution is to require a minimum threshold percentage of co-signatures to be performed
 by every DS node. If a node does not meet this requirement, it is prioritised for replacement. Up to
@@ -52,7 +52,7 @@ Committee size. Otherwise, the new proof-of-work winner is placed after the guar
 This would allow for back-compatibility with the blocks before this change since it is guaranteed
 that there are no existing DS Committee members in `powWinners`.
 
-# Caveats
+## Caveats
 
 Since the solution places emphasis on performance, it might accentuate the geographical
 centralisation problem we see in the DS Committee. Since latency is a large factor in being the pBFT
@@ -61,65 +61,13 @@ cluster in North America. Hence, the minimum threshold must be selected with car
 benign DS nodes that might act a little slower due to geographical latency in the interest of
 decentralisation.
 
-# Code Change Analysis
+## Code Change Analysis
 
-# Proposed Tests
+## Proposed Tests
 
-# Appendix
+## Appendix
 
-## Current DS Committee Composition Update Pseudocode
-
-```python
-# Mediator Reference to the DS Committee
-m_DSCommittee: DequeOfNode
-
-# Number of DS Guards
-NUMBER_OF_DS_GUARDS: int
-
-# Mediator Reference to the Node's Key Pair
-m_selfKey: PairOfKey
-
-# DirectoryService Reference to all PoW Network Information
-m_allPoWConns: Map[PubKey, Peer]
-
-# Update DS Committee Composition
-def DirectoryService_UpdateDSCommiteeComposition():
-    # Get the map of all pow winners from the DS Block.
-    NewDSMembers: Map[PubKey, Peer] = GetDSPoWWinners()
-    it: DequeOfNodeIterator
-
-    for DSPowWinner in NewDSMembers.items():
-        # Remove the pow winner's information from the map of all PoW network information.
-        m_allPoWConns.erase(DSPowWinner.first)
-
-        # If the current iterated winner is my node.
-        if m_self.pubkey == DSPowWinner.first:
-            if not GUARD_MODE:
-                # Place my node's information in front of the DS Committee
-                # Peer() is required because my own node's network information is zeroed out.
-                m_DSCommittee.emplace_front(m_selfKey.pubkey, Peer())
-            else:
-                # Calculate the position to insert the current winner.
-                it = m_DSCommittee.begin() + NUMBER_OF_DS_GUARDS
-
-                # Place my node's information in front of the DS Committee Community Nodes
-                m_DSCommittee.emplace(it, m_selfKey.pubkey, Peer())
-        else:
-            if not GUARD_MODE:
-                # Place the current winner node's information in front of the DS Committee
-                m_DSCommittee.emplace_front(DSPowWinner)
-            else:
-                # Calculate the position to insert the current winner.
-                it = m_DSCommittee.begin() + NUMBER_OF_DS_GUARDS
-
-                # Place the winner's information in front of the DS Committee Community Nodes
-                m_DSCommittee.emplace(it, DSPowWinner)
-
-        # Removes the last element, possibly a vestige from when only one DS node was replaced.
-        m_DSCommittee.pop_back()
-```
-
-## Proposed DS Committee Composition Update Pseudocode
+### Current DS Committee Composition Update Pseudocode
 
 ```python
 # Mediator Reference to the DS Committee
@@ -171,9 +119,61 @@ def DirectoryService_UpdateDSCommiteeComposition():
         m_DSCommittee.pop_back()
 ```
 
+### Proposed DS Committee Composition Update Pseudocode
+
+```python
+# Mediator Reference to the DS Committee
+m_DSCommittee: DequeOfNode
+
+# Number of DS Guards
+NUMBER_OF_DS_GUARDS: int
+
+# Mediator Reference to the Node's Key Pair
+m_selfKey: PairOfKey
+
+# DirectoryService Reference to all PoW Network Information
+m_allPoWConns: Map[PubKey, Peer]
+
+# Update DS Committee Composition
+def DirectoryService_UpdateDSCommiteeComposition():
+    # Get the map of all pow winners from the DS Block.
+    NewDSMembers: Map[PubKey, Peer] = GetDSPoWWinners()
+    it: DequeOfNodeIterator
+
+    for DSPowWinner in NewDSMembers.items():
+        # Remove the pow winner's information from the map of all PoW network information.
+        m_allPoWConns.erase(DSPowWinner.first)
+
+        # If the current iterated winner is my node.
+        if m_self.pubkey == DSPowWinner.first:
+            if not GUARD_MODE:
+                # Place my node's information in front of the DS Committee
+                # Peer() is required because my own node's network information is zeroed out.
+                m_DSCommittee.emplace_front(m_selfKey.pubkey, Peer())
+            else:
+                # Calculate the position to insert the current winner.
+                it = m_DSCommittee.begin() + NUMBER_OF_DS_GUARDS
+
+                # Place my node's information in front of the DS Committee Community Nodes
+                m_DSCommittee.emplace(it, m_selfKey.pubkey, Peer())
+        else:
+            if not GUARD_MODE:
+                # Place the current winner node's information in front of the DS Committee
+                m_DSCommittee.emplace_front(DSPowWinner)
+            else:
+                # Calculate the position to insert the current winner.
+                it = m_DSCommittee.begin() + NUMBER_OF_DS_GUARDS
+
+                # Place the winner's information in front of the DS Committee Community Nodes
+                m_DSCommittee.emplace(it, DSPowWinner)
+
+        # Removes the last element, possibly a vestige from when only one DS node was replaced.
+        m_DSCommittee.pop_back()
+```
 
 
-# References
+
+## References
 
 [1]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L290
 [2]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L238
