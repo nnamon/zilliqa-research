@@ -38,10 +38,10 @@ creates a penalisation bias towards newer nodes, allowing some tolerance for old
 proven themselves in previous rounds.
 
 Currently, to deterministically produce the DS Committee composition, a `powWinners` field is
-included in the DS Block. The algorithm is simple[^1], it places the new proof-of-work winners after
-the guard nodes and shifts the old community nodes back. An existing DS node removes itself[^2] from
-the committee in if its previous consensus ID plus the number of new proof-of-work winners is
-greater than the committee size. The appendix contains an [annotated pseudocode
+included in the DS Block. The algorithm is [simple][1], it places the new proof-of-work winners
+after the guard nodes and shifts the old community nodes back. An existing DS node removes
+[itself][2] from the committee in if its previous consensus ID plus the number of new proof-of-work
+winners is greater than the committee size. The appendix contains an [annotated pseudocode
 listing](#current-ds-committee-composition-update-psuedocode) of this process.
 
 In order to implement the proposed solution without changing the DS Block structure, it is suggested
@@ -172,8 +172,6 @@ def DirectoryService_UpdateDSCommiteeComposition():
 ```
 
 
-
-## References
-
+[//]: # (References)
 [1]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L290
 [2]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L238
