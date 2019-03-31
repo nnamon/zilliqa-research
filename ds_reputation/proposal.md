@@ -169,20 +169,27 @@ removed from the back of the deque to maintain the size of the committee.
 ```c++
 void DirectoryService::UpdateDSCommitteeComposition() {
   ...
+  // Update the DS committee composition
+  LOG_MARKER();
+
   // Get the map of all pow winners from the DS Block.
   const map<PubKey, Peer> NewDSMembers =
       m_mediator.m_dsBlockChain.GetLastBlock().GetHeader().GetDSPoWWinners();
   DequeOfNode::iterator it;
   uint32_t NumWinners = 0;
 
-  for (const auto& DSPowWinner : NewDSMembers) {
+  for (auto& DSPowWinner : NewDSMembers) {
     // Check if the current pow candidate is an existing DS Committee member. ('loser')
-    it = std::find(m_mediator.m_DSCommittee.begin(), m_mediator.m_DSCommittee.end(), DSPowWinner);
-    if (it != m_mediator.m_DSCommittee.end()) {
+    for (it = m_mediator.m_DSCommittee->begin(); it != m_mediator.m_DSCommittee->end(); ++it) {
+        if (DSPowWinner.first == it->first) {
+            break;
+        }
+    }
+    if (it != m_mediator.m_DSCommittee->end()) {
       // Move the candidate to the back of the committee and continue processing other candidates.
-      m_mediator.m_DSCommittee.erase(it)
+      m_mediator.m_DSCommittee->erase(it);
       // Only reorders the Committee. The size is not changed.
-      m_mediator.m_DSCommittee.emplace_back(DSPowWinner)
+      m_mediator.m_DSCommittee->emplace_back(DSPowWinner);
       continue;
     }
 
@@ -223,7 +230,7 @@ void DirectoryService::UpdateDSCommitteeComposition() {
   }
 
   // Remove one node for every winner, maintaining the size of the DS Committee.
-  for (auto i = 0; i < NumWinners; i++) {
+  for (uint32_t i = 0; i < NumWinners; ++i) {
     // One item is always removed every winner, with removal priority given to 'loser' candidates
     // before expiring nodes.
     m_mediator.m_DSCommittee->pop_back();
@@ -233,6 +240,110 @@ void DirectoryService::UpdateDSCommitteeComposition() {
 
 ##### `DirectoryService::UpdateMyDSModeAndConsensusId`
 
+The current `DirectoryService::UpdateMyDSModeAndConsensusId` function adjusts a node's ID by simply
+adding the number of incoming DS members to the node's current ID. It determines if it is among the
+oldest DS members by checking if the calculated ID is greater than the size of the DS Committee.
+
+```c++
+void DirectoryService::UpdateMyDSModeAndConsensusId() {
+  ...
+  // Get the number of new incoming DS members.
+  uint16_t numOfIncomingDs = m_mediator.m_dsBlockChain.GetLastBlock()
+                                 .GetHeader()
+                                 .GetDSPoWWinners()
+                                 .size();
+  ...
+  // Check if I am the oldest backup DS (I will no longer be part of the DS
+  // committee)
+  if ((uint32_t)(m_consensusMyID + numOfIncomingDs) >=
+      m_mediator.m_DSCommittee->size()) {
+    ...
+    // If I am among the oldest DS members, then set the mode to IDLE.
+    m_mode = IDLE;
+  ...
+  } else {
+    // Otherwise, re-calculate my consensus ID and the new consensus leader.
+    if (!GUARD_MODE) {
+      m_consensusMyID += numOfIncomingDs;
+      SetConsensusLeaderID(lastBlockHash % (m_mediator.m_DSCommittee->size()));
+      ...
+    } else {
+      // DS guard indexes do not change
+      if (m_consensusMyID >= Guard::GetInstance().GetNumOfDSGuard()) {
+        m_consensusMyID += numOfIncomingDs;
+        ...
+      } else {
+        ...
+      }
+      // Only DS guard can be ds leader
+      SetConsensusLeaderID(lastBlockHash %
+                           Guard::GetInstance().GetNumOfDSGuard());
+      ...
+    }
+
+    // Check if I am the DS leader and set the mode accordingly.
+    if (m_mediator.m_DSCommittee->at(GetConsensusLeaderID()).first ==
+        m_mediator.m_selfKey.second) {
+      ...
+      m_mode = PRIMARY_DS;
+    } else {
+      ...
+      m_mode = BACKUP_DS;
+    }
+  }
+}
+```
+
+Since the proposed solution involves embedding the 'loser' nodes in the `powWinners` field, the
+number of incoming DS members can no longer be used to calculate the new ID. Instead, the DS
+Committee is now always iterated through to discover the ID. If a node is unable to find its own
+public key in the DS Committee, then it prepares to downgrade itself to a shard node or drop out.
+
+```c++
+void DirectoryService::UpdateMyDSModeAndConsensusId() {
+  ...
+  // Find my new consensus ID.
+  DequeOfNode::iterator it;
+  bool isDropout = true;
+  for (it = m_mediator.m_DSCommittee->begin(); it != m_mediator.m_DSCommittee->end(); ++it) {
+    // Look for my public key.
+    if (m_mediator.m_selfKey.second == it->first) {
+      m_consensusMyID = it - m_mediator.m_DSCommittee->begin();
+      isDropout = false;
+      break;
+    }
+  }
+  ...
+  // Check if I am one of the DS Committee drop outs.
+  if (isDropout) {
+    ...
+    // If I am among the oldest DS members, then set the mode to IDLE.
+    m_mode = IDLE;
+    ...
+  } else {
+    // Otherwise, set the new consensus leader.
+    if (!GUARD_MODE) {
+      SetConsensusLeaderID(lastBlockHash % (m_mediator.m_DSCommittee->size()));
+      ...
+    } else {
+      // Only DS guard can be ds leader
+      SetConsensusLeaderID(lastBlockHash %
+                           Guard::GetInstance().GetNumOfDSGuard());
+      ...
+    }
+
+    // Check if I am the DS leader and set the mode accordingly.
+    if (m_mediator.m_DSCommittee->at(GetConsensusLeaderID()).first ==
+        m_mediator.m_selfKey.second) {
+      ...
+      m_mode = PRIMARY_DS;
+    } else {
+      ...
+      m_mode = BACKUP_DS;
+    }
+  }
+}
+```
 
 ##### `DirectoryService::StartFirstTxEpoch`
 
@@ -298,6 +409,7 @@ void Node::UpdateDSCommiteeComposition(DequeOfNode& dsComm,
 }
 ```
 
+It is also modified in the same manner.
 
 ## Appendix
 
