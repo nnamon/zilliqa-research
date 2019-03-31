@@ -50,8 +50,9 @@ winners. If the current DS committee contains a public key in the `powWinners` f
 key is moved to the end of composition, effectively demoting it since it will fall past the DS
 Committee size. Otherwise, the new proof-of-work winner is placed after the guard nodes as before.
 This would allow for back-compatibility with the blocks before this change since it is guaranteed
-that there are no existing DS Committee members in `powWinners`. The appendix contains an [annotated
-pseudocode listing](#proposed-ds-committee-composition-update-pseudocode) of this proposed process.
+that there are no existing DS Committee members in `powWinners`. It is suggested that the field be
+renamed `powCandidates`. The appendix contains an [annotated pseudocode
+listing](#proposed-ds-committee-composition-update-pseudocode) of this proposed process.
 
 ## Caveats
 
@@ -63,6 +64,26 @@ benign DS nodes that might act a little slower due to geographical latency in th
 decentralisation.
 
 ## Code Change Analysis
+
+### Overview of Affected Components
+
+We split the affected components into two logical parts:
+
+1. PoW Candidate Selection - the period of time before a final DS Block is produced and the
+   proof-of-work submissions are processed.
+2. DS Committee Composition Update - the period after a final DS Block is produced and the DS
+   Committee is updated.
+
+Within these two logical parts, updates will be required to be made to how both DS and normal/shard
+nodes handle the change.
+
+### PoW Candidate Selection
+
+Only the DS nodes are affected for this part.
+
+### DS Committee Composition Update
+
+Both DS and normal/shard nodes are affected for this part.
 
 ## Appendix
 
@@ -82,7 +103,7 @@ m_selfKey: PairOfKey
 m_allPoWConns: Map[PubKey, Peer]
 
 # Update DS Committee Composition
-def DirectoryService_UpdateDSCommiteeComposition():
+def DirectoryService_UpdateDSCommitteeComposition():
     # Get the map of all pow winners from the DS Block.
     NewDSMembers: Map[PubKey, Peer] = GetDSPoWWinners()
     it: DequeOfNodeIterator
@@ -134,7 +155,7 @@ m_selfKey: PairOfKey
 m_allPoWConns: Map[PubKey, Peer]
 
 # Update DS Committee Composition
-def DirectoryService_UpdateDSCommiteeComposition():
+def DirectoryService_UpdateDSCommitteeComposition():
     # Get the map of all pow candidates from the DS Block.
     NewDSMembers: Map[PubKey, Peer] = GetDSPoWCandidates()
     it: DequeOfNodeIterator
