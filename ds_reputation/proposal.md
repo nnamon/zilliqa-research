@@ -74,8 +74,8 @@ We split the affected components into two logical parts:
 2. DS Committee Composition Update - the period after a final DS Block is produced and the DS
    Committee is updated.
 
-Within these two logical parts, updates will be required to be made to how both DS and normal/shard
-nodes handle the change.
+Within these two logical parts, updates will be required to be made to how both DS and non-DS nodes
+handle the change.
 
 ### PoW Candidate Selection
 
@@ -83,7 +83,37 @@ Only the DS nodes are affected for this part.
 
 ### DS Committee Composition Update
 
-Both DS and normal/shard nodes are affected for this part.
+Both DS and non-DS nodes are affected for this part.
+
+#### libDirectoryService
+
+The pertient message is `DSInstructionType:DSBLOCKCONSENSUS` which invokes
+[`DirectoryService::ProcessDSBlockConsensus`][4]. The method calls
+[`DirectoryService::ProcessDSBlockConsensusWhenDone`][5] when the DS Committee has completed
+consensus and is ready to process the DS Block.
+
+
+```c++
+void DirectoryService::ProcessDSBlockConsensusWhenDone() {
+  ...
+  UpdateDSCommiteeComposition();
+  UpdateMyDSModeAndConsensusId();
+  ...
+  StartFirstTxEpoch();
+}
+```
+
+These functions are affected by the proposed solution:
+
+1. [`DirectoryService::UpdateDSCommiteeComposition`][6]
+2. [`DirectoryService::UpdateMyDSModeAndConsensusId`][7]
+3. [`DirectoryService::StartFirstTxEpoch`][8]
+
+##### `DirectoryService::UpdateDSCommiteeComposition`
+
+##### `DirectoryService::UpdateMyDSModeAndConsensusId`
+
+##### `DirectoryService::StartFirstTxEpoch`
 
 ## Appendix
 
@@ -214,3 +244,8 @@ def DirectoryService_UpdateDSCommitteeComposition():
 [1]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L290
 [2]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L238
 [3]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPreProcessing.cpp#L61
+[4]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L622
+[5]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L479
+[6]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L290
+[7]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L214
+[8]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L330
