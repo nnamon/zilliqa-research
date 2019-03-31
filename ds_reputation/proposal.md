@@ -42,7 +42,7 @@ included in the DS Block. The algorithm is [simple][1], it places the new proof-
 after the guard nodes and shifts the old community nodes back. An existing DS node removes
 [itself][2] from the committee in if its previous consensus ID plus the number of new proof-of-work
 winners is greater than the committee size. The appendix contains an [annotated pseudocode
-listing](#current-ds-committee-composition-update-psuedocode) of this process.
+listing](#current-ds-committee-composition-update-pseudocode) of this process.
 
 In order to implement the proposed solution without changing the DS Block structure, it is suggested
 that the `powWinners` field be leveraged to contain the 'losers' as well as the proof-of-work
@@ -50,7 +50,8 @@ winners. If the current DS committee contains a public key in the `powWinners` f
 key is moved to the end of composition, effectively demoting it since it will fall past the DS
 Committee size. Otherwise, the new proof-of-work winner is placed after the guard nodes as before.
 This would allow for back-compatibility with the blocks before this change since it is guaranteed
-that there are no existing DS Committee members in `powWinners`.
+that there are no existing DS Committee members in `powWinners`. The appendix contains an [annotated
+pseudocode listing](#proposed-ds-committee-composition-update-pseudocode) of this proposed process.
 
 ## Caveats
 
@@ -62,8 +63,6 @@ benign DS nodes that might act a little slower due to geographical latency in th
 decentralisation.
 
 ## Code Change Analysis
-
-## Proposed Tests
 
 ## Appendix
 
