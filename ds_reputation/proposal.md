@@ -88,7 +88,7 @@ be added as well as an additional mutex.
 
 1. `std::deque<uint32_t> m_dsMemberPerformance` - Contains the number of co-signatures contributed
    by the DS members by index.
-2. `std::mutex m_mutexDsMember` - Locks access to `m_dsMemberPerformance`.
+2. `std::mutex m_mutexDsMemberPerformance` - Locks access to `m_dsMemberPerformance`.
 
 The number of co-signatures from the DS members are tracked when performing consensus on the final
 blocks. This is similar to how flexible rewards for DS nodes are tracked. The pertinent function to
@@ -116,6 +116,17 @@ The proposed change to this function involves adding a call to a new function
 
 ```c++
 bool DirectoryService::SaveDSPerformance(const vector<bool>& b1, const vector<bool>& b2) {
+  lock_guard<mutex> g(m_mutexDsMemberPerformance);
+  // Iterate through the two co-sig bitmaps and increment the DS Members' scores.
+  for (std::size_t i = 0; i != m_mediator.m_DSCommittee->size(); ++i) {
+    if (b1.at(i)) {
+        ++m_dsMemberPerformance[i];
+    }
+    if (b2.at(i)) {
+        ++m_dsMemberPerformance[i];
+    }
+  }
+  return true;
 }
 
 void DirectoryService::ProcessFinalBlockConsensusWhenDone() {
