@@ -149,9 +149,61 @@ void DirectoryService::ProcessFinalBlockConsensusWhenDone() {
 ```
 
 The maximum number of co-signatures that can be performed is `NUM_FINAL_BLOCK_PER_POW * 2` since
-each consensus process involves performing [two rounds of signing][11].
+each consensus process involves performing [two rounds of signing][11]. A threshold configuration
+value `DS_PERFORMANCE_THRESHOLD_PERCENTAGE` will need to be introduced in `constants.xml`. A DS
+member is considered Byzantine if its performance score is less than
+`DS_PERFORMANCE_THRESHOLD_PERCENTAGE * (NUM_FINAL_BLOCK_PER_POW * 2)`.
 
+The selection of the `powWinners` occurs in `DirectoryService::RunConsensusOnDSBlockWhenDSPrimary`.
+`ComputeDSBlockParameters` populates the `powDSWinners` variable with up to `NUM_DS_ELECTION`
+entries. Since it is expected that all of the winners will replace an existing DS member each, the
+`InjectPoWForDSNode` function injects a PoW entry for the node into the shard PoW solution list.
 
+```c++
+bool DirectoryService::RunConsensusOnDSBlockWhenDSPrimary() {
+  ...
+  // Populate the DS Winners
+  unsigned int numOfProposedDSMembers = ComputeDSBlockParameters(
+      sortedDSPoWSolns, sortedPoWSolns, powDSWinners, dsWinnerPoWs,
+      dsDifficulty, difficulty, blockNum, prevHash);
+
+  // Add expiring DS members to the shard POW winners.
+  InjectPoWForDSNode(sortedPoWSolns, numOfProposedDSMembers);
+  ...
+}
+```
+
+It is proposed to introduce a new function `DirectoryService::EvaluatePerformance` to insert the
+PoW 'losers' and to adjust the number of expiring DS nodes for injection into the shards.
+
+```c++
+unsigned int DirectoryService::EvaluatePerformance(unsigned int numOfProposedDSMembers,
+                                                   MapOfPubKeyPoW dsWinnerPoWs) {
+  ...
+}
+
+bool DirectoryService::RunConsensusOnDSBlockWhenDSPrimary() {
+  ...
+  // Populate the DS Winners
+  unsigned int numOfProposedDSMembers = ComputeDSBlockParameters(
+      sortedDSPoWSolns, sortedPoWSolns, powDSWinners, dsWinnerPoWs,
+      dsDifficulty, difficulty, blockNum, prevHash);
+
+  // Insert the 'losers' and adjust number of expiring DS members.
+  unsigned int numOfExpiringDSMembers = EvaluatePerformance(numOfProposedDSMembers, powDSWinners);
+
+  // Add expiring DS members to the shard POW winners.
+  InjectPoWForDSNode(sortedPoWSolns, numOfExpiringDSMembers);
+  ...
+}
+```
+
+The backup consensus occurs in `DirectoryService::RunConsensusOnDSBlockWhenDSBackup` which
+calls `DirectoryService::DSBlockValidator` in which most of the validation happens. The function
+should be modified to involve the DS performance checks as described above.
+
+Finally, the `m_dsMemberPerformance` should be cleared and re-initialised back to zero with the
+size of the DS Committee after the DS Block is finalised.
 
 ### DS Committee Composition Update
 
