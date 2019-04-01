@@ -81,6 +81,67 @@ handle the change.
 
 Only the DS nodes are affected for this part.
 
+#### libDirectoryService
+
+To facilitate tracking DS node performance, it is proposed that a new `DirectoryService` variable
+be added as well as an additional mutex.
+
+1. `std::deque<uint32_t> m_dsMemberPerformance` - Contains the number of co-signatures contributed
+   by the DS members by index.
+2. `std::mutex m_mutexDsMember` - Locks access to `m_dsMemberPerformance`.
+
+The number of co-signatures from the DS members are tracked when performing consensus on the final
+blocks. This is similar to how flexible rewards for DS nodes are tracked. The pertinent function to
+be modified is [`DirectoryService::ProcessFinalBlockConsensusWhenDone`][10].
+
+```c++
+void DirectoryService::ProcessFinalBlockConsensusWhenDone() {
+  ...
+  if (isVacuousEpoch) {
+  ...
+  } else {
+    StoreFinalBlockToDisk();
+    // Coinbase
+    SaveCoinbase(m_finalBlock->GetB1(), m_finalBlock->GetB2(),
+                 CoinbaseReward::FINALBLOCK_REWARD,
+                 m_mediator.m_currentEpochNum);
+    m_totalTxnFees += m_finalBlock->GetHeader().GetRewards();
+  }
+  ...
+}
+```
+
+The proposed change to this function involves adding a call to a new function
+`bool DirectoryService::SaveDSPerformance(const vector<bool>& b1, const vector<bool>& b2)`.
+
+```c++
+bool DirectoryService::SaveDSPerformance(const vector<bool>& b1, const vector<bool>& b2) {
+}
+
+void DirectoryService::ProcessFinalBlockConsensusWhenDone() {
+  ...
+  if (isVacuousEpoch) {
+  ...
+  } else {
+    StoreFinalBlockToDisk();
+    // Coinbase
+    SaveCoinbase(m_finalBlock->GetB1(), m_finalBlock->GetB2(),
+                 CoinbaseReward::FINALBLOCK_REWARD,
+                 m_mediator.m_currentEpochNum);
+    m_totalTxnFees += m_finalBlock->GetHeader().GetRewards();
+  }
+
+  // DS Performance
+  SaveDSPerformance(m_finalBlock->GetB1(), m_finalBlock->GetB2());
+  ...
+}
+```
+
+The maximum number of co-signatures that can be performed is `NUM_FINAL_BLOCK_PER_POW * 2` since
+each consensus process involves performing [two rounds of signing][11].
+
+
+
 ### DS Committee Composition Update
 
 Both DS and non-DS nodes are affected for this part.
@@ -429,7 +490,7 @@ void Node::UpdateDSCommiteeComposition(DequeOfNode& dsComm,
 }
 ```
 
-It is also modified in the same manner.
+It is also modified in the same manner as in the DS nodes.
 
 ## Appendix
 
@@ -567,3 +628,5 @@ def DirectoryService_UpdateDSCommitteeComposition():
 [7]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L214
 [8]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/DSBlockPostProcessing.cpp#L330
 [9]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libNode/DSBlockProcessing.cpp#L327
+[10]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libDirectoryService/FinalBlockPostProcessing.cpp#L107
+[11]: https://github.com/Zilliqa/Zilliqa/blob/tag/v4.4.0/src/libConsensus/ConsensusBackup.cpp#L339
