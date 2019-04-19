@@ -62,9 +62,7 @@ def create_message(start_byte, message):
     return msg
 
 def main():
-    host = "127.0.0.1"
-    port = 5016
-    send_message(host, port, create_normal_message(node_submit_transaction(1, 5000, "")))
+    pass
 
 if __name__ == '__main__':
     main()
