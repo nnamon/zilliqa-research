@@ -1,42 +1,69 @@
 #!/usr/bin/env python
 
-  #// Reception format:
-  #// 0x01 ~ 0xFF - version, defined in constant file
-  #// 0x11 - start byte
-  #// 0xLL 0xLL 0xLL 0xLL - 4-byte length of message
-  #// <message>
+import struct
+import socket
+import messages
 
-  #// 0x01 ~ 0xFF - version, defined in constant file
-  #// 0x22 - start byte (broadcast)
-  #// 0xLL 0xLL 0xLL 0xLL - 4-byte length of hash + message
-  #// <32-byte hash> <message>
+START_BYTE_NORMAL = 0x11
+START_BYTE_BROADCAST = 0x22
+START_BYTE_GOSSIP = 0x33
+HDR_LEN = 6
+HASH_LEN = 32
+GOSSIP_MSGTYPE_LEN = 1
+GOSSIP_ROUND_LEN = 4
+GOSSIP_SNDR_LISTNR_PORT_LEN = 4
 
-  #// 0x01 ~ 0xFF - version, defined in constant file
-  #// 0x33 - start byte (gossip)
-  #// 0xLL 0xLL 0xLL 0xLL - 4-byte length of message
-  #// 0x01 ~ 0x04 - Gossip_Message_Type
-  #// <4-byte Age> <message>
+MSG_VERSION = 1
 
-  #// 0x01 ~ 0xFF - version, defined in constant file
-  #// 0x33 - start byte (report)
-  #// 0x00 0x00 0x00 0x01 - 4-byte length of message
-  #// 0x00
+# Network
 
+def send_message(host, port, message):
+    s = socket.socket()
+    s.connect((host, port))
+    s.sendall(message)
+    s.close()
 
-def forge_reception(version, message):
-    pass
+# Node Instructions
 
-def forge_broadcast(version, message):
-    pass
+def node_submit_transaction(submit_txn_type, msg_block_num, txn_array_message):
+    msg = ""
+    msg += struct.pack('B', submit_txn_type)
+    msg += struct.pack('>Q', msg_block_num)
+    msg += txn_array_message
+    return create_instruction(
+            messages.MessageType['NODE'],
+            messages.NodeInstructionType['SUBMITTRANSACTION'], msg)
 
-def forge_gossip(version, message):
-    pass
+# Instruction
 
-def forge_report(version, message):
-    pass
+def create_instruction(msg_type, instruction_type, message):
+    msg = ""
+    msg += struct.pack('B', msg_type)
+    msg += struct.pack('B', instruction_type)
+    msg += message
+    return msg
+
+# P2P Layer
+
+def create_normal_message(message):
+    msg = create_message(START_BYTE_NORMAL, message)
+    return msg
+
+def create_message(start_byte, message):
+    length = len(message)
+
+    msg = ""
+    msg += struct.pack('B', MSG_VERSION)
+    msg += struct.pack('B', start_byte)
+    msg += struct.pack('>I', length)
+    msg += message
+
+    return msg
 
 def main():
-    pass
+    host = "127.0.0.1"
+    port = 5008
+    send_message(host, port, create_normal_message(node_submit_transaction(1, 5000, "")))
 
 if __name__ == '__main__':
     main()
