@@ -27,7 +27,8 @@ def send_message(host, port, message):
 
 def node_submit_transaction(submit_txn_type, msg_block_num, txn_array_message):
     msg = ""
-    msg += struct.pack('B', submit_txn_type)
+    if msg_block_num is not None:
+        msg += struct.pack('B', submit_txn_type)
     msg += struct.pack('>Q', msg_block_num)
     msg += txn_array_message
     return create_instruction(
